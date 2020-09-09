@@ -1,5 +1,7 @@
 import math
 import os
+import io
+import array
 import sys
 import fnmatch
 from typing import Union, Tuple
@@ -8,6 +10,8 @@ import h5py
 from scipy.io import loadmat
 import numpy as np
 from PIL import Image
+# data structure
+import RLE_pb2
 
 
 def main(baseFolder: str) -> None:
@@ -35,8 +39,7 @@ def makeFiles(matlabFilename: str, outFolderName: str) -> None:
     imageData = getNormalizedMatlabObjectFromKey(matlabObject, 'D_stored')
     labelData = getNormalizedMatlabObjectFromKey(matlabObject, 'L_stored')
     scaleFactor = getScaleFactor(imageData.shape[:2])
-    makeImageFiles(imageData, outFolderName, scaleFactor)
-
+    makeImageFiles(imageData, labelData, outFolderName, scaleFactor)
 
     return
 
@@ -65,15 +68,17 @@ def makeMetaDataFile() -> None:
     # TODO
     return
 
-def makeImageFiles(imageStackArray: np.array, folderPath: str, scaleFactor: int = 1) -> None:
+def makeImageFiles(imageStackArray: np.array, imageLabelStackArray: np.array, folderPath: str, scaleFactor: int = 1) -> None:
     maxPerBundle = 100
     _, _, frames = imageStackArray.shape
     numBundles = math.ceil(frames / maxPerBundle)
     for i in range(numBundles):
         start = i * maxPerBundle
         framesInBundle = min(maxPerBundle,  frames - start)
-        filename = folderPath + 'F{}.jpeg'.format(i)
+        filename = folderPath + 'D{}.jpg'.format(i)
         getTiledImage(imageStackArray, (start, framesInBundle), filename, scaleFactor)
+        filename = folderPath + 'L{}.pb'.format(i)
+        getTiledLabelImage(imageLabelStackArray, (start, framesInBundle), filename, scaleFactor)
 
     return
 
@@ -107,13 +112,66 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
         left = x * smallW
         bigImg.paste(smallImg, (left, top))
 
-    bigImg.save(filename, 'JPEG')
+    bigImg.save(filename, 'JPEG', quality=50)
 
     return
 
-def makeLabelFiles() -> None:
-    # TODO
+
+# @app.route('/data/<string:folderId>/img_<int:locationId>_labels.dat')
+# def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], filename: str, scaleFactor: int = 1) -> None:
+def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[int, int], filename: str, scaleFactor: int = 1) -> None:
+
+    first, numImages = indexStartCount
+
+    labeledImageStackArray = downSample(labeledImageStackArray, scaleFactor)
+    h, w, totalImages = labeledImageStackArray.shape
+
+    labeledImageStackArray = labeledImageStackArray.astype(np.int32)
+
+    # Compress with run length encoding
+    rows = []
+    for t in range(first, first + numImages):
+        for y in range(h):
+            encodedRow = []
+            firstLabel = labeledImageStackArray[y, 0, t]
+            currentRun = (0, 0, firstLabel)
+            for x in range(w):
+                start, length, lastLabel = currentRun
+                thisLabel = labeledImageStackArray[y, x, t]
+                if thisLabel == lastLabel:
+                    currentRun = (start, length + 1, thisLabel)
+
+                else:
+                    if lastLabel != 0:
+                        encodedRow.append(currentRun)
+                    currentRun = (x, 1, thisLabel)
+
+                if x == w - 1 and thisLabel != 0:
+                    encodedRow.append(currentRun)
+
+            rows.append(encodedRow)
+
+    # Store in protobuf object
+    pbImageLabels = RLE_pb2.ImageLabels()
+    for row in rows:
+        pbRow = pbImageLabels.rowList.add()
+        for start, length, label in row:
+            pbRun = pbRow.row.add()
+            pbRun.start = start
+            pbRun.length = length
+            pbRun.label = label        
+
+    # Save file
+    serialString = pbImageLabels.SerializeToString()
+    fileObject = open(filename, 'wb')
+    fileObject.write(serialString)
+    fileObject.close()
+
+
     return
+
+def downSample(imageStackArray, factor = 3):
+    return imageStackArray[::factor,::factor,:]
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
