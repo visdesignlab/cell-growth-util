@@ -35,7 +35,7 @@ def shouldMakeFiles(matlabFilename: str, outFolderName: str) -> bool:
     return True
 
 def makeFiles(matlabFilename: str, outFolderName: str) -> None:
-    print('Processing file: (' + matlabFilename) + ')'
+    print('Processing file: (' + matlabFilename) + ')')
     matlabObject = openAnyMatlabFile(matlabFilename)
     imageData = getNormalizedMatlabObjectFromKey(matlabObject, 'D_stored')
     labelData = getNormalizedMatlabObjectFromKey(matlabObject, 'L_stored')
