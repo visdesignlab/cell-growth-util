@@ -74,6 +74,7 @@ def makeImageFiles(imageStackArray: np.array, imageLabelStackArray: np.array, fo
     _, _, frames = imageStackArray.shape
     numBundles = math.ceil(frames / maxPerBundle)
     for i in range(numBundles):
+        print('\t--- Bundle {} of {} ---'.format(i+1, numBundles))
         start = i * maxPerBundle
         framesInBundle = min(maxPerBundle,  frames - start)
         filename = folderPath + 'D{}.jpg'.format(i)
@@ -101,6 +102,7 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
     bigImg = Image.new(bigImageType, (bigWidth, bigHeight))
 
     for frameIndex in range(first, first + numImages):
+        print('\tGenerating JPEG: ' + str(frameIndex+1), end='\r')
         smallImg = imageStackArray[:, :, frameIndex]
         smallImg = Image.fromarray(smallImg, imageType)
         # TODO - color map smallImg
@@ -112,7 +114,7 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
         top = y * smallH
         left = x * smallW
         bigImg.paste(smallImg, (left, top))
-
+    print()
     bigImg.save(filename, 'JPEG', quality=50)
 
     return
@@ -132,6 +134,7 @@ def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[
     # Compress with run length encoding
     rows = []
     for t in range(first, first + numImages):
+        print('\tCompressing Labels: ' + str(t+1), end='\r')
         for y in range(h):
             encodedRow = []
             firstLabel = labeledImageStackArray[y, 0, t]
@@ -151,7 +154,7 @@ def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[
                     encodedRow.append(currentRun)
 
             rows.append(encodedRow)
-
+    print()
     # Store in protobuf object
     pbImageLabels = RLE_pb2.ImageLabels()
     for row in rows:
@@ -163,11 +166,12 @@ def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[
             pbRun.label = label        
 
     # Save file
+
+    print('\tSerializing to ProtoBuf file')
     serialString = pbImageLabels.SerializeToString()
     fileObject = open(filename, 'wb')
     fileObject.write(serialString)
     fileObject.close()
-
 
     return
 
