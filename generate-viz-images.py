@@ -31,8 +31,14 @@ def main(baseFolder: str) -> None:
 
 
 def shouldMakeFiles(matlabFilename: str, outFolderName: str) -> bool:
-    # TODO
-    return True
+    # Returns in seconds since epoch
+    matlabTime = os.path.getmtime(matlabFilename)
+    generatedTime = 0
+    for root, _, files in os.walk(outFolderName):
+        for name in files:
+            outFilename = os.path.join(root, name)
+            generatedTime = max(generatedTime, os.path.getmtime(outFilename))
+    return matlabTime > generatedTime
 
 def makeFiles(matlabFilename: str, outFolderName: str) -> None:
     print('Processing file: (' + matlabFilename + ')')
