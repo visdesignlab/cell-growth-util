@@ -1,10 +1,9 @@
 import math
 import os
-import io
-import array
+import json
 import sys
 import fnmatch
-from typing import Union, Tuple
+from typing import Union, Tuple, Dict
 # Matlab modules
 import h5py
 from scipy.io import loadmat
@@ -25,12 +24,13 @@ def main(baseFolder: str) -> None:
 
             outFolderName += '/'
 
-            if shouldMakeFiles(matlabFilename, outFolderName) or FORCE_ALL:
-                makeFiles(matlabFilename, outFolderName)
+            if shouldMakeFiles(matlabFilename, outFolderName):
+                makeFiles(matlabFilename, outFolderName, root)
     return
 
-
 def shouldMakeFiles(matlabFilename: str, outFolderName: str) -> bool:
+    if FORCE_ALL:
+        return True
     # Returns in seconds since epoch
     matlabTime = os.path.getmtime(matlabFilename)
     generatedTime = 0
@@ -40,14 +40,16 @@ def shouldMakeFiles(matlabFilename: str, outFolderName: str) -> bool:
             generatedTime = max(generatedTime, os.path.getmtime(outFilename))
     return matlabTime > generatedTime
 
-def makeFiles(matlabFilename: str, outFolderName: str) -> None:
+def makeFiles(matlabFilename: str, outFolderName: str, rootFolder: str) -> None:
     print('Processing file: (' + matlabFilename + ')')
     matlabObject = openAnyMatlabFile(matlabFilename)
     imageData = getNormalizedMatlabObjectFromKey(matlabObject, 'D_stored')
     labelData = getNormalizedMatlabObjectFromKey(matlabObject, 'L_stored')
     scaleFactor = getScaleFactor(imageData.shape[:2])
-    makeImageFiles(imageData, labelData, outFolderName, scaleFactor)
-
+    metadata = makeImageFiles(imageData, labelData, outFolderName, scaleFactor)
+    metadataFolder = os.path.join(rootFolder, '.vizMetaData')
+    if shouldMakeFiles(matlabFilename, metadataFolder):
+        makeMetaDataFile(metadata, metadataFolder)
     return
 
 def openAnyMatlabFile(matlabFilename: str) -> Union[dict, h5py.File]:
@@ -71,30 +73,35 @@ def getScaleFactor(size: Tuple[int, int], maxDim = 600.0) -> int:
     scaleFactor = math.ceil(larger / maxDim)
     return scaleFactor
 
-def makeMetaDataFile() -> None:
-    # TODO
+def makeMetaDataFile(data: Dict, folderName: str) -> None:
+    if not os.path.exists(folderName):
+        os.mkdir(folderName)
+    fullPath = os.path.join(folderName, 'imageMetaData.json')
+    with open(fullPath, 'w') as fileObject:
+        json.dump(data, fileObject)
     return
 
-def makeImageFiles(imageStackArray: np.array, imageLabelStackArray: np.array, folderPath: str, scaleFactor: int = 1) -> None:
+def makeImageFiles(imageStackArray: np.array, imageLabelStackArray: np.array, folderPath: str, scaleFactor: int = 1) -> Dict:
     maxPerBundle = 100
-    _, _, frames = imageStackArray.shape
+    numberOfColumns = 10
+    height, width, frames = imageStackArray.shape
     numBundles = math.ceil(frames / maxPerBundle)
+    metadata = {'tileWidth': int(width / scaleFactor), 'tileHeight': int(height / scaleFactor), 'numberOfColumns': numberOfColumns, 'tilesPerFile': maxPerBundle}
     for i in range(numBundles):
         if not QUIET_MODE:
             print('\t--- Bundle {} of {} ---'.format(i+1, numBundles))
         start = i * maxPerBundle
         framesInBundle = min(maxPerBundle,  frames - start)
         filename = folderPath + 'D{}.jpg'.format(i)
-        getTiledImage(imageStackArray, (start, framesInBundle), filename, scaleFactor)
+        getTiledImage(imageStackArray, (start, framesInBundle), filename, numberOfColumns, scaleFactor)
         filename = folderPath + 'L{}.pb'.format(i)
         getTiledLabelImage(imageLabelStackArray, (start, framesInBundle), filename, scaleFactor)
 
-    return
+    return metadata
 
-def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], filename: str, scaleFactor: int = 1) -> None:
+def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], filename: str, numberOfColumns: int, scaleFactor: int = 1) -> None:
     h, w, totalImages = imageStackArray.shape
     first, numImages = indexStartCount
-    numberOfColumns = 10
     smallW = int(w / scaleFactor)
     smallH = int(h / scaleFactor)
     newSize = (smallW, smallH)
@@ -115,7 +122,6 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
         smallImg = Image.fromarray(smallImg, imageType)
         # TODO - color map smallImg
         smallImg = smallImg.resize(newSize)
-        # smallImg = smallImg.convert('RGB')
         tileIndex = frameIndex - first
         x = tileIndex % numberOfColumns
         y = math.floor(tileIndex / numberOfColumns)
@@ -128,9 +134,6 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
 
     return
 
-
-# @app.route('/data/<string:folderId>/img_<int:locationId>_labels.dat')
-# def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], filename: str, scaleFactor: int = 1) -> None:
 def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[int, int], filename: str, scaleFactor: int = 1) -> None:
 
     first, numImages = indexStartCount
@@ -194,7 +197,6 @@ if __name__ == '__main__':
         print('Error: no input folder received. Quitting.')
         sys.exit(1)
     
-    # python3 gen.py . -force -quiet
     baseFolder = sys.argv[1]
     global FORCE_ALL
     FORCE_ALL = '-f' in sys.argv or '-force' in sys.argv
