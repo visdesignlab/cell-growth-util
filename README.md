@@ -37,4 +37,5 @@ For example, if you wanted to generate all the files in the directory `/User/Ali
 ## Get changes to code made by others:
 
 `cd` into `cell-growth-util` folder made above.
+
 `git pull`
