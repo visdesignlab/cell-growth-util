@@ -1,19 +1,21 @@
-## Download:
+## Download (once):
 
 `git clone https://github.com/visdesignlab/cell-growth-util`
 
 
-## Create [virtual environment](https://docs.python.org/3/tutorial/venv.html):
+## Create [virtual environment](https://docs.python.org/3/tutorial/venv.html) (once):
 
 `cd cell-growth-util`
 
-`python3 -m venv tutorial-env`
+`python3 -m venv .venv`
 
-Windows: `tutorial-env\Scripts\activate.bat`
+## Activate virual environment (each time you open a new console):
 
-Mac: `source tutorial-env/bin/activate`
+Windows: `.venv\Scripts\activate.bat`
 
-## Install dependencies:
+Mac: `source .venv/bin/activate`
+
+## Install dependencies (once):
 
 `python3 -m pip install -r requirements.txt`
 
