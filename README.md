@@ -33,3 +33,8 @@ Mac: `source .venv/bin/activate`
 For example, if you wanted to generate all the files in the directory `/User/Alice/Data/Experiment42/` for any that are not already created/up to date you would run:
 
 `python3 generate-viz-images.py /User/Alice/Data/Experiment42/`
+
+## Get changes to code made by others:
+
+`cd` into `cell-growth-util` folder made above.
+`git pull`
