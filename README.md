@@ -5,6 +5,8 @@
 
 ## Create [virtual environment](https://docs.python.org/3/tutorial/venv.html):
 
+`cd cell-growth-util`
+
 `python3 -m venv tutorial-env`
 
 Windows: `tutorial-env\Scripts\activate.bat`
@@ -20,7 +22,7 @@ Mac: `source tutorial-env/bin/activate`
 `python3 generate-viz-images <folder> [-f | -force] [-q | -quiet]`
 
 | Argument        | Description           |
-|-|-|
+|---|---|
 | `folder` | Required. The root folder. Everything below this will be checked and generated. |
 | `-f` or `-force`      | Optional. Adding this argument will cause the script to skip checking the modified timestamp and generate all files.      | 
 | `-q` or `-quiet` | Optional. Setting this flag will reduce the amount of statements printed to the command line.      |
