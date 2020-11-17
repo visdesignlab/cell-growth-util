@@ -12,8 +12,6 @@ from PIL import Image
 # data structure
 import RLE_pb2
 
-from matplotlib import cm
-
 
 def main(baseFolder: str) -> None:
     pattern = 'data*.mat'
