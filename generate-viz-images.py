@@ -12,6 +12,8 @@ from PIL import Image
 # data structure
 import RLE_pb2
 
+from matplotlib import cm
+
 
 def main(baseFolder: str) -> None:
     pattern = 'data*.mat'
@@ -64,6 +66,7 @@ def getNormalizedMatlabObjectFromKey(matlabDict: Union[dict, h5py.File], key: st
         return None
     if type(matlabDict) == dict:
         return matlabDict[key]
+        # return np.array(matlabDict[key]).T
     # else it is an h5py file, which has to be transposed
     # (https://www.mathworks.com/matlabcentral/answers/308303-why-does-matlab-transpose-hdf5-data)
     return np.array(matlabDict[key]).T
@@ -110,7 +113,6 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
 
     (bigWidth, bigHeight) = (numberOfColumns * smallW, numRows * smallH)    
 
-    imageType = 'F'
     bigImageType = 'RGB'
 
     bigImg = Image.new(bigImageType, (bigWidth, bigHeight))
@@ -119,7 +121,10 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
         if not QUIET_MODE:
             print('\tGenerating JPEG: ' + str(frameIndex+1), end='\r')
         smallImg = imageStackArray[:, :, frameIndex]
-        smallImg = Image.fromarray(smallImg, imageType)
+        if smallImg.dtype == np.int16:
+            smallImg = smallImg.astype('float32')
+            smallImg *= ((624*2*math.pi)/65536)
+        smallImg = Image.fromarray(smallImg)        
         # TODO - color map smallImg
         smallImg = smallImg.resize(newSize)
         tileIndex = frameIndex - first
