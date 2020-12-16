@@ -87,7 +87,7 @@ def makeImageFiles(imageStackArray: np.array, imageLabelStackArray: np.array, fo
     numberOfColumns = 10
     height, width, frames = imageStackArray.shape
     numBundles = math.ceil(frames / maxPerBundle)
-    metadata = {'tileWidth': int(width / scaleFactor), 'tileHeight': int(height / scaleFactor), 'numberOfColumns': numberOfColumns, 'tilesPerFile': maxPerBundle}
+    metadata = {'tileWidth': int(width / scaleFactor), 'tileHeight': int(height / scaleFactor), 'numberOfColumns': numberOfColumns, 'tilesPerFile': maxPerBundle, 'scaleFactor': scaleFactor}
     for i in range(numBundles):
         if not QUIET_MODE:
             print('\t--- Bundle {} of {} ---'.format(i+1, numBundles))
