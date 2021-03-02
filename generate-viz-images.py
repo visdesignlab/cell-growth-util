@@ -9,6 +9,7 @@ import h5py
 from scipy.io import loadmat
 import numpy as np
 from PIL import Image
+from PIL import ImageOps
 # data structure
 import RLE_pb2
 
@@ -135,8 +136,8 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
         bigImg.paste(smallImg, (left, top))
     if not QUIET_MODE:
         print()
+    bigImg = ImageOps.autocontrast(bigImg)
     bigImg.save(filename, 'JPEG', quality=50)
-
     return
 
 def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[int, int], filename: str, scaleFactor: int = 1) -> None:
