@@ -29,6 +29,8 @@ def main(baseFolder: str) -> None:
     return
 
 def shouldMakeFiles(matlabFilename: str, outFolderName: str) -> bool:
+    if matlabFilename.endswith('data_allframes.mat'):
+        return False
     if FORCE_ALL:
         return True
     # Returns in seconds since epoch
