@@ -16,17 +16,21 @@ import RLE_pb2
 
 def main(baseFolder: str) -> None:
     pattern = 'data*.mat'
+    outName = '_LoonData'
     for root, _, files in os.walk(baseFolder):
         for name in fnmatch.filter(files, pattern):
+            outFolderRoot = os.path.join(root, outName)
+            outFolderSub = os.path.join(outFolderRoot, name)[:-4]
+            if not os.path.exists(outFolderRoot):
+                os.mkdir(outFolderRoot)
+            if not os.path.exists(outFolderSub):
+                os.mkdir(outFolderSub)
+
+            outFolderSub += '/'
+
             matlabFilename = os.path.join(root, name)
-            outFolderName = matlabFilename[:-4]
-            if not os.path.exists(outFolderName):
-                os.mkdir(outFolderName)
-
-            outFolderName += '/'
-
-            if shouldMakeFiles(matlabFilename, outFolderName):
-                makeFiles(matlabFilename, outFolderName, root)
+            if shouldMakeFiles(matlabFilename, outFolderSub):
+                makeFiles(matlabFilename, outFolderSub, outFolderRoot)
     return
 
 def shouldMakeFiles(matlabFilename: str, outFolderName: str) -> bool:

@@ -1,7 +1,7 @@
 
 import RLE_pb2
 
-inFolder = './in/data7/'
+inFolder = './in/_loonData/data7/'
 outFolder = './out/'
 
 
