@@ -3,15 +3,18 @@ import os
 import json
 import sys
 import fnmatch
-from typing import Union, Tuple, Dict
-# Matlab modules
-import h5py
-from scipy.io import loadmat
+from typing import Tuple, Dict
+
+# image/data modules
 import numpy as np
 from PIL import Image
 from PIL import ImageOps
+
 # data structure
 import RLE_pb2
+
+# my util functions for dealing with matlab junk
+import util_common
 
 
 def main(baseFolder: str) -> None:
@@ -49,9 +52,9 @@ def shouldMakeFiles(matlabFilename: str, outFolderName: str) -> bool:
 
 def makeFiles(matlabFilename: str, outFolderName: str, rootFolder: str) -> None:
     print('Processing file: (' + matlabFilename + ')')
-    matlabObject = openAnyMatlabFile(matlabFilename)
-    imageData = getNormalizedMatlabObjectFromKey(matlabObject, 'D_stored')
-    labelData = getNormalizedMatlabObjectFromKey(matlabObject, 'L_stored')
+    matlabObject = util_common.openAnyMatlabFile(matlabFilename)
+    imageData = util_common.getNormalizedMatlabObjectFromKey(matlabObject, 'D_stored')
+    labelData = util_common.getNormalizedMatlabObjectFromKey(matlabObject, 'L_stored')
     scaleFactor = getScaleFactor(imageData.shape[:2])
     metadata = makeImageFiles(imageData, labelData, outFolderName, scaleFactor)
 
@@ -62,23 +65,6 @@ def makeFiles(matlabFilename: str, outFolderName: str, rootFolder: str) -> None:
     if DELETE_MAT_DATA:
         deleteMatlabFile(matlabFilename)
     return
-
-def openAnyMatlabFile(matlabFilename: str) -> Union[dict, h5py.File]:
-    try:
-        outputDict = h5py.File(matlabFilename, 'r')
-    except:
-        outputDict = loadmat(matlabFilename)
-    return outputDict
-
-def getNormalizedMatlabObjectFromKey(matlabDict: Union[dict, h5py.File], key: str):
-    if key not in matlabDict:
-        return None
-    if type(matlabDict) == dict:
-        return matlabDict[key]
-        # return np.array(matlabDict[key]).T
-    # else it is an h5py file, which has to be transposed
-    # (https://www.mathworks.com/matlabcentral/answers/308303-why-does-matlab-transpose-hdf5-data)
-    return np.array(matlabDict[key]).T
 
 def getScaleFactor(size: Tuple[int, int], maxDim = 600.0) -> int:
     larger = max(size)
