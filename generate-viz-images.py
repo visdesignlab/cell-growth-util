@@ -54,9 +54,13 @@ def makeFiles(matlabFilename: str, outFolderName: str, rootFolder: str) -> None:
     labelData = getNormalizedMatlabObjectFromKey(matlabObject, 'L_stored')
     scaleFactor = getScaleFactor(imageData.shape[:2])
     metadata = makeImageFiles(imageData, labelData, outFolderName, scaleFactor)
+
     metadataFolder = os.path.join(rootFolder, '.vizMetaData')
     if shouldMakeFiles(matlabFilename, metadataFolder):
         makeMetaDataFile(metadata, metadataFolder)
+
+    if DELETE_MAT_DATA:
+        deleteMatlabFile(matlabFilename)
     return
 
 def openAnyMatlabFile(matlabFilename: str) -> Union[dict, h5py.File]:
@@ -106,6 +110,12 @@ def makeImageFiles(imageStackArray: np.array, imageLabelStackArray: np.array, fo
         getTiledLabelImage(imageLabelStackArray, (start, framesInBundle), filename, scaleFactor)
 
     return metadata
+
+def deleteMatlabFile(matlabFilename: str) -> None:
+    print('🗑 ❌❌❌ DELETING FILE ❌❌❌🗑 : ({})'.format(matlabFilename))
+    os.remove(matlabFilename)
+    return
+
 
 def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], filename: str, numberOfColumns: int, scaleFactor: int = 1) -> None:
     h, w, totalImages = imageStackArray.shape
@@ -212,5 +222,7 @@ if __name__ == '__main__':
     FORCE_ALL = '-f' in sys.argv or '-force' in sys.argv
     global QUIET_MODE
     QUIET_MODE = '-q' in sys.argv or '-quiet' in sys.argv
+    global DELETE_MAT_DATA
+    DELETE_MAT_DATA = '-delete' in sys.argv
 
     main(baseFolder)
