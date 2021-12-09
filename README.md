@@ -42,7 +42,9 @@ You can also generate files for multiple experiments. For instance, if you have 
 
 `python3 generate-viz-images.py /User/Alice/Data/`
 
-In general, the best folder choice is the _deepest_ folder that still includes all the experiments you want to generate. This is especially imporant if you use the `-delete` flag. **If you set the folder too high you risk deleting `data*.mat` files you may not have intended to.**
+In general, the best folder choice is the _deepest_ folder that still includes all the experiments you want to generate. This is especially imporant if you use the `-delete` flag.
+
+**❗❗❗If you set the folder too high you risk deleting `data*.mat` files you may not have intended to. ❗❗❗**
 
 ## Get changes to code made by others:
 
