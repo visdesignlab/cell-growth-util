@@ -215,8 +215,10 @@ def saveExperimentMetaData(outFolder: str, locationMaps: Dict[str, Dict[str, Lis
     if not os.path.exists(outFolder):
         os.mkdir(outFolder)
     metaDataDict = dict()
-    metaDataDict['displayName'] = 'Unknown'
-    metaDataDict['author'] = 'Unknown'
+
+    metaDataDict['displayName'] = ''
+    metaDataDict['author'] = ''
+    metaDataDict['folder'] = ''
     metaDataDict['locationMaps'] = locationMaps
     jsonString = json.dumps(metaDataDict)
     outFilename = os.path.join(outFolder, 'experimentMetaData.json')
