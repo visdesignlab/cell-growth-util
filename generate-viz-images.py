@@ -14,7 +14,7 @@ from PIL import ImageOps
 import RLE_pb2
 
 # my util functions for dealing with matlab junk
-import util_common
+import util_common as util
 import util_tracks
 
 
@@ -36,7 +36,7 @@ def main(baseFolder: str) -> None:
 def handleDataAllFrames(inFolderRoot, outFolderRoot) -> None:
     outFolder = os.path.join(outFolderRoot, '.vizMetaData')
     if shouldMakeFiles(os.path.join(inFolderRoot, 'data_allFrames.mat'), outFolderRoot):
-        util_tracks.makeMassOverTimePb(inFolderRoot, outFolder)
+        util_tracks.makeMassOverTimePb(inFolderRoot, outFolder, QUIET_MODE)
     return
 
 def handleImageData(inFolderRoot, outFolderRoot, name) -> None:
@@ -69,10 +69,10 @@ def shouldMakeFiles(matlabFilename: str, outFolderName: str) -> bool:
     return matlabTime > generatedTime
 
 def makeFiles(matlabFilename: str, outFolderName: str, rootFolder: str) -> None:
-    print('Processing file: (' + matlabFilename + ')')
-    matlabObject = util_common.openAnyMatlabFile(matlabFilename)
-    imageData = util_common.getNormalizedMatlabObjectFromKey(matlabObject, 'D_stored')
-    labelData = util_common.getNormalizedMatlabObjectFromKey(matlabObject, 'L_stored')
+    util.msg_header('Processing file: (' + matlabFilename + ')')
+    matlabObject = util.openAnyMatlabFile(matlabFilename)
+    imageData = util.getNormalizedMatlabObjectFromKey(matlabObject, 'D_stored')
+    labelData = util.getNormalizedMatlabObjectFromKey(matlabObject, 'L_stored')
     scaleFactor = getScaleFactor(imageData.shape[:2])
     metadata = makeImageFiles(imageData, labelData, outFolderName, scaleFactor)
 
@@ -104,8 +104,7 @@ def makeImageFiles(imageStackArray: np.array, imageLabelStackArray: np.array, fo
     numBundles = math.ceil(frames / maxPerBundle)
     metadata = {'tileWidth': int(width / scaleFactor), 'tileHeight': int(height / scaleFactor), 'numberOfColumns': numberOfColumns, 'tilesPerFile': maxPerBundle, 'scaleFactor': scaleFactor}
     for i in range(numBundles):
-        if not QUIET_MODE:
-            print('\t--- Bundle {} of {} ---'.format(i+1, numBundles))
+        util.msg('--- Bundle {} of {} ---'.format(i+1, numBundles), QUIET_MODE)
         start = i * maxPerBundle
         framesInBundle = min(maxPerBundle,  frames - start)
         filename = folderPath + 'D{}.jpg'.format(i)
@@ -116,7 +115,7 @@ def makeImageFiles(imageStackArray: np.array, imageLabelStackArray: np.array, fo
     return metadata
 
 def deleteMatlabFile(matlabFilename: str) -> None:
-    print('🗑 ❌❌❌ DELETING FILE ❌❌❌🗑 : ({})'.format(matlabFilename))
+    util.msg_header('🗑 ❌❌❌ DELETING FILE ❌❌❌🗑 : ({})'.format(matlabFilename))
     os.remove(matlabFilename)
     return
 
@@ -135,10 +134,10 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
     bigImageType = 'RGB'
 
     bigImg = Image.new(bigImageType, (bigWidth, bigHeight))
-
+    # util.msg('Compressing JPEGs', QUIET_MODE)
     for frameIndex in range(first, first + numImages):
-        if not QUIET_MODE:
-            print('\tGenerating JPEG: ' + str(frameIndex+1), end='\r')
+        loadingBar = util.loadingBar(frameIndex - first + 1, numImages)
+        util.msg('Compressing JPEGs:  {}'.format(loadingBar), QUIET_MODE, True)
         smallImg = imageStackArray[:, :, frameIndex]
         if smallImg.dtype == np.int16:
             smallImg = smallImg.astype('float32')
@@ -152,8 +151,7 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
         top = y * smallH
         left = x * smallW
         bigImg.paste(smallImg, (left, top))
-    if not QUIET_MODE:
-        print()
+    util.msg_header('')
     bigImg = ImageOps.autocontrast(bigImg)
     bigImg.save(filename, 'JPEG', quality=50)
     return
@@ -168,10 +166,11 @@ def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[
     labeledImageStackArray = labeledImageStackArray.astype(np.int32)
 
     # Compress with run length encoding
+    # util.msg('Compressing Labels:', QUIET_MODE)
     rows = []
     for t in range(first, first + numImages):
-        if not QUIET_MODE:
-            print('\tCompressing Labels: ' + str(t+1), end='\r')
+        loadingBar = util.loadingBar(t - first + 1, numImages)
+        util.msg('Compressing Labels: {}'.format(loadingBar), QUIET_MODE, True)
         for y in range(h):
             encodedRow = []
             firstLabel = labeledImageStackArray[y, 0, t]
@@ -191,8 +190,7 @@ def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[
                     encodedRow.append(currentRun)
 
             rows.append(encodedRow)
-    if not QUIET_MODE:
-        print()
+    util.msg_header('')
     # Store in protobuf object
     pbImageLabels = RLE_pb2.ImageLabels()
     for row in rows:
@@ -204,13 +202,14 @@ def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[
             pbRun.label = label        
 
     # Save file
-    if not QUIET_MODE:
-        print('\tSerializing to ProtoBuf file')
+
+    util.msg('Serializing ProtoBuf (peanut butter)...', QUIET_MODE)
     serialString = pbImageLabels.SerializeToString()
+    util.msg('Saving data to file...', QUIET_MODE) 
     fileObject = open(filename, 'wb')
     fileObject.write(serialString)
     fileObject.close()
-
+    util.msg('Done!', QUIET_MODE) 
     return
 
 def downSample(imageStackArray, factor = 3):
@@ -218,7 +217,7 @@ def downSample(imageStackArray, factor = 3):
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
-        print('Error: no input folder received. Quitting.')
+        util.err('No input folder received. Quitting.')
         sys.exit(1)
     
     baseFolder = sys.argv[1]

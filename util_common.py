@@ -1,3 +1,4 @@
+import math
 from typing import Union
 import h5py
 from scipy.io import loadmat
@@ -19,3 +20,43 @@ def getNormalizedMatlabObjectFromKey(matlabDict: Union[dict, h5py.File], key: st
     # else it is an h5py file, which has to be transposed
     # (https://www.mathworks.com/matlabcentral/answers/308303-why-does-matlab-transpose-hdf5-data)
     return np.array(matlabDict[key]).T
+
+def err(msg: str) -> None:
+    print('🟥──ERROR──🟥:', msg)
+    return
+
+def warn(msg: str, quietMode: bool) -> None:
+    if not quietMode:
+        print('\t🟡──Warning──🟡:', msg)
+    return
+
+def info(msg: str, quietMode: bool) -> None:
+    if not quietMode:
+        print('\tInfo:', msg)
+    return
+
+def msg_header(msg: str) -> None:
+    print(msg)
+    return
+
+def msg(msg: str, quietMode: bool, sameLine: bool = False) -> None:
+    endString = '\n'
+    if sameLine:
+        endString = '\r'
+    if not quietMode:
+        print('\t' + msg, end=endString)
+    return
+
+def loadingBar(top: int, bot: int, width = 20) -> str:
+    singleProgress = '──░░░▒▒▓'
+    percent = top / bot
+    count = percent * width
+    doneCount = math.floor(count)
+    leftOver = count - doneCount
+    progressBar = '█' * doneCount
+    if doneCount < width:
+        idx = math.floor(leftOver * len(singleProgress))
+        singleChar = singleProgress[idx]
+        progressBar += singleChar
+        progressBar += '─' * (width - (doneCount + 1))
+    return progressBar + ' {:.2f}%, {} of {}'.format(percent * 100, top, bot)

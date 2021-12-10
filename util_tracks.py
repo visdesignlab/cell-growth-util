@@ -24,15 +24,17 @@ import pbCurveList_pb2
 import json
 
 # my util functions for dealing with matlab junk
-import util_common
+import util_common as util
 
-def makeMassOverTimePb(inFolder: str, outFolder: str) -> None:
-    print('Processing file: (' + inFolder + '/data_allframes.mat' + ')')
+def makeMassOverTimePb(inFolder: str, outFolder: str, quietMode: bool) -> None:
+    util.msg_header('Processing file: (' + inFolder + '/data_allframes.mat' + ')')
     matlabFilename = os.path.join(inFolder, 'data_allframes.mat')
-    data_allframes = util_common.openAnyMatlabFile(matlabFilename)
+    data_allframes = util.openAnyMatlabFile(matlabFilename)
     # generate data
     colHeaders = getColTracksHeader(data_allframes)
     if colHeaders is None:
+        util.warn('"tracksColHeaders" not found, using default column headers:', quietMode)
+        util.msg('\tX,Y,Mass (pg),Time (h),id,Mean Value,Shape Factor,Location ID,Frame ID,xShift,yShift,segmentLabel', quietMode)
         colHeaderList = ['X', 'Y', 'Mass (pg)', 'Time (h)', 'id', 'Mean Value', 'Shape Factor', 'Location ID', 'Frame ID', 'xShift', 'yShift', 'segmentLabel']
         areaIndex = -1
         massIndex = 2
@@ -61,7 +63,8 @@ def makeMassOverTimePb(inFolder: str, outFolder: str) -> None:
     massOverTime = getMassOverTimeArray(data_allframes)
 
     if massOverTime is None:
-        raise Exception('🐛 Cannot find "tracks" array')
+        util.err('Cannot find "tracks" array. Skipping file.')
+        return
 
     locIncluded =  colHeaders is not None and 'Location ID' in colHeaders
     frameIncluded = colHeaders is not None and 'Frame ID' in colHeaders
@@ -71,35 +74,43 @@ def makeMassOverTimePb(inFolder: str, outFolder: str) -> None:
     meanIntensityIncluded = colHeaders is not None and 'Mean Intensity' in colHeaders
     allIncluded = locIncluded and frameIncluded and xShiftIncluded and yShiftIncluded and segLabelIncluded
 
-    if not allIncluded:
-        timeArray = getTimeIndexArray(data_allframes)
-        if timeArray is None:
-            raise Exception('🐛 Cannot find "t_stored" array')
-
     if not meanIntensityIncluded and areaIndex >= 0:
         pixelSize = getPixelSize(data_allframes)[0][0]
         if colHeaders is not None:
+            util.info('Will add "Mean Intensity" to tracks array.', quietMode)
             colHeaderList.append('Mean Intensity')
     if not locIncluded:
         locationArray = getLocationArray(data_allframes)
         if colHeaders is not None:
+            util.info('Will add "Location ID" to tracks array.', quietMode)
             colHeaderList.append('Location ID')
     if not frameIncluded:
         frameArray = getFrameArray(data_allframes)
         if colHeaders is not None:
+            util.info('Will add "Frame ID" to tracks array.', quietMode)
             colHeaderList.append('Frame ID')
     if not xShiftIncluded:
         xShiftArray = getXShiftArray(data_allframes)
         if colHeaders is not None:
+            util.info('Will add "xShift" to tracks array.', quietMode)
             colHeaderList.append('xShift')
     if not yShiftIncluded:
         yShiftArray = getYShiftArray(data_allframes)
         if colHeaders is not None:
+            util.info('Will add "yShift" to tracks array.', quietMode)
             colHeaderList.append('yShift')
     if not segLabelIncluded and colHeaders is not None:
+        util.info('Will add "segmentLabel" to tracks array.', quietMode)
         colHeaderList.append('segmentLabel')
     
     if not allIncluded:
+        timeArray = getTimeIndexArray(data_allframes)
+        if timeArray is None:
+            util.err('Cannot find "t_stored" array. Skipping file.')
+            return
+
+    if not allIncluded:
+        util.msg('Adding extra necessary columns...', quietMode)
         timeToIndex = {}
         uniqueLocationList = set()
         for index, time in enumerate(timeArray):
@@ -131,7 +142,8 @@ def makeMassOverTimePb(inFolder: str, outFolder: str) -> None:
     if not segLabelIncluded:
         # to handle this buildLabelLookup from loon app.py server code
         # must be refactored to calculate the labels
-        raise Exception('🐛 Segment Label is not included')
+        util.err('"segmentLabel" is not in original data. Skipping file.')
+        return
 
     dataRowList = []
     for index, row in enumerate(massOverTime):
@@ -164,6 +176,7 @@ def makeMassOverTimePb(inFolder: str, outFolder: str) -> None:
                 dataRow.append(label)
         dataRowList.append(dataRow)
 
+    util.msg('Building location maps...', quietMode)
     locationMaps = buildLocationMaps(colHeaderList, dataRowList)
 
     curveNames = {'Location ID', 'xShift', 'yShift'}
@@ -178,11 +191,16 @@ def makeMassOverTimePb(inFolder: str, outFolder: str) -> None:
     pbCurveList.pointAttrNames.extend(pointAttrNames)
     pbCurveList.curveAttrNames.extend(curveAttrNames)
 
+    util.msg('Building "CurveList" data structure...', quietMode)
     tKey = colHeaderList[timeIndex]
     idKey = colHeaderList[idIndex]
     df = pd.DataFrame(data=dataRowList, columns=colHeaderList)
     curveList = df.groupby(idKey)
+    numberOfTracks = curveList.ngroups
     for curveId, curve in curveList:
+        top = int(curveId)
+        loadingBar = util.loadingBar(top, numberOfTracks)
+        util.msg('{} cells.'.format(loadingBar), quietMode, True)
         curve.sort_values(tKey)
         pbCurve = pbCurveList.curveList.add()
         pbCurve.id = int(curveId)
@@ -194,12 +212,15 @@ def makeMassOverTimePb(inFolder: str, outFolder: str) -> None:
             for key in pointAttrNames:
                 val = point[key]
                 pbPoint.valueList.extend([val])
+    util.msg_header('') # return so you can see the last Cell ID
+    util.msg('Serializing ProtoBuf (peanut butter)...', quietMode)
 
     pbString = pbCurveList.SerializeToString()
 
+    util.msg('Saving data to files...', quietMode) 
     saveTracksData(outFolder, pbString)
     saveExperimentMetaData(outFolder, locationMaps)
-
+    util.msg('Done!', quietMode) 
     return
 
 
@@ -229,28 +250,28 @@ def saveExperimentMetaData(outFolder: str, locationMaps: Dict[str, Dict[str, Lis
     return
 
 def getColTracksHeader(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'tracksColHeaders')
+    return util.getNormalizedMatlabObjectFromKey(matlabDict, 'tracksColHeaders')
 
 def getMassOverTimeArray(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'tracks')
+    return util.getNormalizedMatlabObjectFromKey(matlabDict, 'tracks')
     
 def getTimeIndexArray(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 't_stored')
+    return util.getNormalizedMatlabObjectFromKey(matlabDict, 't_stored')
     
 def getPixelSize(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'pxlsize')
+    return util.getNormalizedMatlabObjectFromKey(matlabDict, 'pxlsize')
     
 def getLocationArray(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'Loc_stored')
+    return util.getNormalizedMatlabObjectFromKey(matlabDict, 'Loc_stored')
     
 def getFrameArray(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'ii_stored')
+    return util.getNormalizedMatlabObjectFromKey(matlabDict, 'ii_stored')
     
 def getXShiftArray(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'xshift_store')
+    return util.getNormalizedMatlabObjectFromKey(matlabDict, 'xshift_store')
   
 def getYShiftArray(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'yshift_store')
+    return util.getNormalizedMatlabObjectFromKey(matlabDict, 'yshift_store')
 
 def buildLocationMaps(columnHeaderArray: List[str], dataRowArray: List[List[float]]) -> Dict[str, Dict[str, List[List[int]]]]:
     locationMaps = {}
