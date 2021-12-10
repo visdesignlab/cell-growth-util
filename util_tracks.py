@@ -26,7 +26,7 @@ import json
 # my util functions for dealing with matlab junk
 import util_common
 
-def getMassOverTimePb(inFolder: str, outFolder: str) -> None:
+def makeMassOverTimePb(inFolder: str, outFolder: str) -> None:
     matlabFilename = os.path.join(inFolder, 'data_allframes.mat')
     data_allframes = util_common.openAnyMatlabFile(matlabFilename)
     # generate data
@@ -226,28 +226,28 @@ def saveExperimentMetaData(outFolder: str, locationMaps: Dict[str, Dict[str, Lis
     return
 
 def getColTracksHeader(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey('tracksColHeaders',  matlabDict)
+    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'tracksColHeaders')
 
 def getMassOverTimeArray(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey('tracks',  matlabDict)
+    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'tracks')
     
 def getTimeIndexArray(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey('t_stored',  matlabDict)
+    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 't_stored')
     
 def getPixelSize(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey('pxlsize',  matlabDict)
+    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'pxlsize')
     
 def getLocationArray(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey('Loc_stored',  matlabDict)
+    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'Loc_stored')
     
 def getFrameArray(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey('ii_stored',  matlabDict)
+    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'ii_stored')
     
 def getXShiftArray(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey('xshift_store',  matlabDict)
+    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'xshift_store')
   
 def getYShiftArray(matlabDict):
-    return util_common.getNormalizedMatlabObjectFromKey('yshift_store',  matlabDict)
+    return util_common.getNormalizedMatlabObjectFromKey(matlabDict, 'yshift_store')
 
 def buildLocationMaps(columnHeaderArray: List[str], dataRowArray: List[List[float]]) -> Dict[str, Dict[str, List[List[int]]]]:
     locationMaps = {}

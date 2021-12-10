@@ -15,6 +15,7 @@ import RLE_pb2
 
 # my util functions for dealing with matlab junk
 import util_common
+import util_tracks
 
 
 def main(baseFolder: str) -> None:
@@ -23,17 +24,30 @@ def main(baseFolder: str) -> None:
     for root, _, files in os.walk(baseFolder):
         for name in fnmatch.filter(files, pattern):
             outFolderRoot = os.path.join(root, outName)
-            outFolderSub = os.path.join(outFolderRoot, name)[:-4]
             if not os.path.exists(outFolderRoot):
                 os.mkdir(outFolderRoot)
-            if not os.path.exists(outFolderSub):
-                os.mkdir(outFolderSub)
+            if name == 'data_allframes.mat':
+                handleDataAllFrames(root, outFolderRoot)
+            else:
+                handleImageData(root, outFolderRoot, name)
 
-            outFolderSub += '/'
+    return
 
-            matlabFilename = os.path.join(root, name)
-            if shouldMakeFiles(matlabFilename, outFolderSub):
-                makeFiles(matlabFilename, outFolderSub, outFolderRoot)
+def handleDataAllFrames(inFolderRoot, outFolderRoot) -> None:
+    outFolder = os.path.join(outFolderRoot, '.vizMetaData')
+    util_tracks.makeMassOverTimePb(inFolderRoot, outFolder)
+    return
+
+def handleImageData(inFolderRoot, outFolderRoot, name) -> None:
+    outFolderSub = os.path.join(outFolderRoot, name)[:-4]
+    if not os.path.exists(outFolderSub):
+        os.mkdir(outFolderSub)
+
+    outFolderSub += '/'
+
+    matlabFilename = os.path.join(inFolderRoot, name)
+    if shouldMakeFiles(matlabFilename, outFolderSub):
+        makeFiles(matlabFilename, outFolderSub, outFolderRoot)
     return
 
 def shouldMakeFiles(matlabFilename: str, outFolderName: str) -> bool:
