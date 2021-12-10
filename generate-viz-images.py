@@ -35,7 +35,8 @@ def main(baseFolder: str) -> None:
 
 def handleDataAllFrames(inFolderRoot, outFolderRoot) -> None:
     outFolder = os.path.join(outFolderRoot, '.vizMetaData')
-    util_tracks.makeMassOverTimePb(inFolderRoot, outFolder)
+    if shouldMakeFiles(os.path.join(inFolderRoot, 'data_allFrames.mat'), outFolderRoot):
+        util_tracks.makeMassOverTimePb(inFolderRoot, outFolder)
     return
 
 def handleImageData(inFolderRoot, outFolderRoot, name) -> None:
@@ -51,17 +52,20 @@ def handleImageData(inFolderRoot, outFolderRoot, name) -> None:
     return
 
 def shouldMakeFiles(matlabFilename: str, outFolderName: str) -> bool:
-    if matlabFilename.endswith('data_allframes.mat'):
-        return False
     if FORCE_ALL:
         return True
     # Returns in seconds since epoch
     matlabTime = os.path.getmtime(matlabFilename)
     generatedTime = 0
-    for root, _, files in os.walk(outFolderName):
-        for name in files:
-            outFilename = os.path.join(root, name)
-            generatedTime = max(generatedTime, os.path.getmtime(outFilename))
+    if matlabFilename.endswith('data_allframes.mat'):
+        outFilename = os.path.join(outFolderName, 'massOverTime.pb')
+        if os.path.exists(outFilename):
+            generatedTime = os.path.getmtime(outFilename)
+    else:
+        for root, _, files in os.walk(outFolderName):
+            for name in files:
+                outFilename = os.path.join(root, name)
+                generatedTime = max(generatedTime, os.path.getmtime(outFilename))
     return matlabTime > generatedTime
 
 def makeFiles(matlabFilename: str, outFolderName: str, rootFolder: str) -> None:

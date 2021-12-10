@@ -27,6 +27,7 @@ import json
 import util_common
 
 def makeMassOverTimePb(inFolder: str, outFolder: str) -> None:
+    print('Processing file: (' + inFolder + '/data_allframes.mat' + ')')
     matlabFilename = os.path.join(inFolder, 'data_allframes.mat')
     data_allframes = util_common.openAnyMatlabFile(matlabFilename)
     # generate data
