@@ -151,7 +151,7 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
         top = y * smallH
         left = x * smallW
         bigImg.paste(smallImg, (left, top))
-    util.msg_header('')
+    util.msg_header('', QUIET_MODE)
     bigImg = ImageOps.autocontrast(bigImg)
     bigImg.save(filename, 'JPEG', quality=50)
     return
@@ -190,7 +190,7 @@ def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[
                     encodedRow.append(currentRun)
 
             rows.append(encodedRow)
-    util.msg_header('')
+    util.msg_header('', QUIET_MODE)
     # Store in protobuf object
     pbImageLabels = RLE_pb2.ImageLabels()
     for row in rows:

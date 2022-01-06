@@ -35,8 +35,9 @@ def info(msg: str, quietMode: bool) -> None:
         print('\tInfo:', msg)
     return
 
-def msg_header(msg: str) -> None:
-    print(msg)
+def msg_header(msg: str, quietMode: bool = False) -> None:
+    if not quietMode:
+        print(msg)
     return
 
 def msg(msg: str, quietMode: bool, sameLine: bool = False) -> None:
@@ -46,6 +47,8 @@ def msg(msg: str, quietMode: bool, sameLine: bool = False) -> None:
     if not quietMode:
         print('\t' + msg, end=endString)
     return
+
+LOADING_BAR_CONSTANT = 0.002345 # somewhat arbitrary constant so printing messages aren't overdone. But seem irregular.
 
 def loadingBar(top: int, bot: int, width = 20) -> str:
     singleProgress = '──░░░▒▒▓'

@@ -146,7 +146,11 @@ def makeMassOverTimePb(inFolder: str, outFolder: str, quietMode: bool) -> None:
         return
 
     dataRowList = []
+    step = max(1, round(len(massOverTime) * util.LOADING_BAR_CONSTANT))
     for index, row in enumerate(massOverTime):
+        if index % step == 0 or index == len(massOverTime) -1:
+            loadingBar = util.loadingBar(index + 1, len(massOverTime))
+            util.msg('{} rows.'.format(loadingBar), quietMode, True)
         dataRow = [x for x in row] # convert to vanilla python array
         if not allIncluded:
             if not meanIntensityIncluded and areaIndex >= 0:
@@ -175,6 +179,8 @@ def makeMassOverTimePb(inFolder: str, outFolder: str, quietMode: bool) -> None:
                 label = labelLookup.get(cellId, {}).get(frameId, -1)
                 dataRow.append(label)
         dataRowList.append(dataRow)
+    
+    util.msg_header('', quietMode)
 
     util.msg('Building location maps...', quietMode)
     locationMaps = buildLocationMaps(colHeaderList, dataRowList)
@@ -197,10 +203,13 @@ def makeMassOverTimePb(inFolder: str, outFolder: str, quietMode: bool) -> None:
     df = pd.DataFrame(data=dataRowList, columns=colHeaderList)
     curveList = df.groupby(idKey)
     numberOfTracks = curveList.ngroups
+
+    step = max(1, round(numberOfTracks * util.LOADING_BAR_CONSTANT))
     for curveId, curve in curveList:
-        top = int(curveId)
-        loadingBar = util.loadingBar(top, numberOfTracks)
-        util.msg('{} cells.'.format(loadingBar), quietMode, True)
+        if curveId % step == 0 or curveId == numberOfTracks - 1:
+            top = int(curveId)
+            loadingBar = util.loadingBar(top, numberOfTracks)
+            util.msg('{} cells.'.format(loadingBar), quietMode, True)
         curve.sort_values(tKey)
         pbCurve = pbCurveList.curveList.add()
         pbCurve.id = int(curveId)
@@ -212,7 +221,7 @@ def makeMassOverTimePb(inFolder: str, outFolder: str, quietMode: bool) -> None:
             for key in pointAttrNames:
                 val = point[key]
                 pbPoint.valueList.extend([val])
-    util.msg_header('') # return so you can see the last Cell ID
+    util.msg_header('', quietMode) # return so you can see the last Cell ID
     util.msg('Serializing ProtoBuf (peanut butter)...', quietMode)
 
     pbString = pbCurveList.SerializeToString()
