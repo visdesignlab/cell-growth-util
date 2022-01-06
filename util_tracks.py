@@ -208,7 +208,7 @@ def makeMassOverTimePb(inFolder: str, outFolder: str, quietMode: bool) -> None:
     for curveId, curve in curveList:
         if curveId % step == 0 or curveId == numberOfTracks - 1:
             top = int(curveId)
-            loadingBar = util.loadingBar(top, numberOfTracks)
+            loadingBar = util.loadingBar(top + 1, numberOfTracks)
             util.msg('{} cells.'.format(loadingBar), quietMode, True)
         curve.sort_values(tKey)
         pbCurve = pbCurveList.curveList.add()
