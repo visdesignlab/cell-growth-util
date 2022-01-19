@@ -3,15 +3,19 @@ import os
 import json
 import sys
 import fnmatch
-from typing import Union, Tuple, Dict
-# Matlab modules
-import h5py
-from scipy.io import loadmat
+from typing import Tuple, Dict
+
+# image/data modules
 import numpy as np
 from PIL import Image
 from PIL import ImageOps
+
 # data structure
 import RLE_pb2
+
+# my util functions for dealing with matlab junk
+import util_common as util
+import util_tracks
 
 
 def main(baseFolder: str) -> None:
@@ -20,38 +24,55 @@ def main(baseFolder: str) -> None:
     for root, _, files in os.walk(baseFolder):
         for name in fnmatch.filter(files, pattern):
             outFolderRoot = os.path.join(root, outName)
-            outFolderSub = os.path.join(outFolderRoot, name)[:-4]
             if not os.path.exists(outFolderRoot):
                 os.mkdir(outFolderRoot)
-            if not os.path.exists(outFolderSub):
-                os.mkdir(outFolderSub)
+            if name == 'data_allframes.mat':
+                handleDataAllFrames(root, outFolderRoot)
+            else:
+                handleImageData(root, outFolderRoot, name)
 
-            outFolderSub += '/'
+    return
 
-            matlabFilename = os.path.join(root, name)
-            if shouldMakeFiles(matlabFilename, outFolderSub):
-                makeFiles(matlabFilename, outFolderSub, outFolderRoot)
+def handleDataAllFrames(inFolderRoot, outFolderRoot) -> None:
+    outFolder = os.path.join(outFolderRoot, '.vizMetaData')
+    if shouldMakeFiles(os.path.join(inFolderRoot, 'data_allFrames.mat'), outFolderRoot):
+        util_tracks.makeMassOverTimePb(inFolderRoot, outFolder, QUIET_MODE)
+    return
+
+def handleImageData(inFolderRoot, outFolderRoot, name) -> None:
+    outFolderSub = os.path.join(outFolderRoot, name)[:-4]
+    if not os.path.exists(outFolderSub):
+        os.mkdir(outFolderSub)
+
+    outFolderSub += '/'
+
+    matlabFilename = os.path.join(inFolderRoot, name)
+    if shouldMakeFiles(matlabFilename, outFolderSub):
+        makeFiles(matlabFilename, outFolderSub, outFolderRoot)
     return
 
 def shouldMakeFiles(matlabFilename: str, outFolderName: str) -> bool:
-    if matlabFilename.endswith('data_allframes.mat'):
-        return False
     if FORCE_ALL:
         return True
     # Returns in seconds since epoch
     matlabTime = os.path.getmtime(matlabFilename)
     generatedTime = 0
-    for root, _, files in os.walk(outFolderName):
-        for name in files:
-            outFilename = os.path.join(root, name)
-            generatedTime = max(generatedTime, os.path.getmtime(outFilename))
+    if matlabFilename.endswith('data_allframes.mat'):
+        outFilename = os.path.join(outFolderName, 'massOverTime.pb')
+        if os.path.exists(outFilename):
+            generatedTime = os.path.getmtime(outFilename)
+    else:
+        for root, _, files in os.walk(outFolderName):
+            for name in files:
+                outFilename = os.path.join(root, name)
+                generatedTime = max(generatedTime, os.path.getmtime(outFilename))
     return matlabTime > generatedTime
 
 def makeFiles(matlabFilename: str, outFolderName: str, rootFolder: str) -> None:
-    print('Processing file: (' + matlabFilename + ')')
-    matlabObject = openAnyMatlabFile(matlabFilename)
-    imageData = getNormalizedMatlabObjectFromKey(matlabObject, 'D_stored')
-    labelData = getNormalizedMatlabObjectFromKey(matlabObject, 'L_stored')
+    util.msg_header('Processing file: (' + matlabFilename + ')')
+    matlabObject = util.openAnyMatlabFile(matlabFilename)
+    imageData = util.getNormalizedMatlabObjectFromKey(matlabObject, 'D_stored')
+    labelData = util.getNormalizedMatlabObjectFromKey(matlabObject, 'L_stored')
     scaleFactor = getScaleFactor(imageData.shape[:2])
     metadata = makeImageFiles(imageData, labelData, outFolderName, scaleFactor)
 
@@ -62,23 +83,6 @@ def makeFiles(matlabFilename: str, outFolderName: str, rootFolder: str) -> None:
     if DELETE_MAT_DATA:
         deleteMatlabFile(matlabFilename)
     return
-
-def openAnyMatlabFile(matlabFilename: str) -> Union[dict, h5py.File]:
-    try:
-        outputDict = h5py.File(matlabFilename, 'r')
-    except:
-        outputDict = loadmat(matlabFilename)
-    return outputDict
-
-def getNormalizedMatlabObjectFromKey(matlabDict: Union[dict, h5py.File], key: str):
-    if key not in matlabDict:
-        return None
-    if type(matlabDict) == dict:
-        return matlabDict[key]
-        # return np.array(matlabDict[key]).T
-    # else it is an h5py file, which has to be transposed
-    # (https://www.mathworks.com/matlabcentral/answers/308303-why-does-matlab-transpose-hdf5-data)
-    return np.array(matlabDict[key]).T
 
 def getScaleFactor(size: Tuple[int, int], maxDim = 600.0) -> int:
     larger = max(size)
@@ -100,8 +104,7 @@ def makeImageFiles(imageStackArray: np.array, imageLabelStackArray: np.array, fo
     numBundles = math.ceil(frames / maxPerBundle)
     metadata = {'tileWidth': int(width / scaleFactor), 'tileHeight': int(height / scaleFactor), 'numberOfColumns': numberOfColumns, 'tilesPerFile': maxPerBundle, 'scaleFactor': scaleFactor}
     for i in range(numBundles):
-        if not QUIET_MODE:
-            print('\t--- Bundle {} of {} ---'.format(i+1, numBundles))
+        util.msg('--- Bundle {} of {} ---'.format(i+1, numBundles), QUIET_MODE)
         start = i * maxPerBundle
         framesInBundle = min(maxPerBundle,  frames - start)
         filename = folderPath + 'D{}.jpg'.format(i)
@@ -112,7 +115,7 @@ def makeImageFiles(imageStackArray: np.array, imageLabelStackArray: np.array, fo
     return metadata
 
 def deleteMatlabFile(matlabFilename: str) -> None:
-    print('🗑 ❌❌❌ DELETING FILE ❌❌❌🗑 : ({})'.format(matlabFilename))
+    util.msg_header('🗑 ❌❌❌ DELETING FILE ❌❌❌🗑 : ({})'.format(matlabFilename))
     os.remove(matlabFilename)
     return
 
@@ -131,10 +134,10 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
     bigImageType = 'RGB'
 
     bigImg = Image.new(bigImageType, (bigWidth, bigHeight))
-
+    # util.msg('Compressing JPEGs', QUIET_MODE)
     for frameIndex in range(first, first + numImages):
-        if not QUIET_MODE:
-            print('\tGenerating JPEG: ' + str(frameIndex+1), end='\r')
+        loadingBar = util.loadingBar(frameIndex - first + 1, numImages)
+        util.msg('Compressing JPEGs:  {}'.format(loadingBar), QUIET_MODE, True)
         smallImg = imageStackArray[:, :, frameIndex]
         if smallImg.dtype == np.int16:
             smallImg = smallImg.astype('float32')
@@ -148,8 +151,7 @@ def getTiledImage(imageStackArray: np.array, indexStartCount: Tuple[int, int], f
         top = y * smallH
         left = x * smallW
         bigImg.paste(smallImg, (left, top))
-    if not QUIET_MODE:
-        print()
+    util.msg_header('', QUIET_MODE)
     bigImg = ImageOps.autocontrast(bigImg)
     bigImg.save(filename, 'JPEG', quality=50)
     return
@@ -164,10 +166,11 @@ def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[
     labeledImageStackArray = labeledImageStackArray.astype(np.int32)
 
     # Compress with run length encoding
+    # util.msg('Compressing Labels:', QUIET_MODE)
     rows = []
     for t in range(first, first + numImages):
-        if not QUIET_MODE:
-            print('\tCompressing Labels: ' + str(t+1), end='\r')
+        loadingBar = util.loadingBar(t - first + 1, numImages)
+        util.msg('Compressing Labels: {}'.format(loadingBar), QUIET_MODE, True)
         for y in range(h):
             encodedRow = []
             firstLabel = labeledImageStackArray[y, 0, t]
@@ -187,8 +190,7 @@ def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[
                     encodedRow.append(currentRun)
 
             rows.append(encodedRow)
-    if not QUIET_MODE:
-        print()
+    util.msg_header('', QUIET_MODE)
     # Store in protobuf object
     pbImageLabels = RLE_pb2.ImageLabels()
     for row in rows:
@@ -200,13 +202,14 @@ def getTiledLabelImage(labeledImageStackArray: np.array, indexStartCount: Tuple[
             pbRun.label = label        
 
     # Save file
-    if not QUIET_MODE:
-        print('\tSerializing to ProtoBuf file')
+
+    util.msg('Serializing ProtoBuf (peanut butter)...', QUIET_MODE)
     serialString = pbImageLabels.SerializeToString()
+    util.msg('Saving data to file...', QUIET_MODE) 
     fileObject = open(filename, 'wb')
     fileObject.write(serialString)
     fileObject.close()
-
+    util.msg('Done!', QUIET_MODE) 
     return
 
 def downSample(imageStackArray, factor = 3):
@@ -214,7 +217,7 @@ def downSample(imageStackArray, factor = 3):
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
-        print('Error: no input folder received. Quitting.')
+        util.err('No input folder received. Quitting.')
         sys.exit(1)
     
     baseFolder = sys.argv[1]
