@@ -142,6 +142,7 @@ def makeMassOverTimePb(inFolder: str, outFolder: str, quietMode: bool) -> None:
     if not segLabelIncluded:
         # to handle this buildLabelLookup from loon app.py server code
         # must be refactored to calculate the labels
+                # https://github.com/visdesignlab/Loon/blob/599a06a37fdfc1a068a3136d276260f8566203db/app.py#L524
         util.err('"segmentLabel" is not in original data. Skipping file.')
         return
 
