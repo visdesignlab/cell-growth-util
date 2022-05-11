@@ -35,7 +35,9 @@ def makeMassOverTimePb(inFolder: str, outFolder: str, quietMode: bool) -> None:
     if colHeaders is None:
         util.warn('"tracksColHeaders" not found, using default column headers:', quietMode)
         util.msg('\tX,Y,Mass (pg),Time (h),id,Mean Value,Shape Factor,Location ID,Frame ID,xShift,yShift,segmentLabel', quietMode)
-        colHeaderList = ['X', 'Y', 'Mass (pg)', 'Time (h)', 'id', 'Mean Value', 'Shape Factor', 'Location ID', 'Frame ID', 'xShift', 'yShift', 'segmentLabel']
+        colHeaderList = ['X','Y','Mass (pg)','Time (h)', 'id','fluor', 'p1', 'p2', 'fpredict', 'segmentLabel', 'Location ID', 'Frame ID', 'xShift', 'yShift']
+
+        # colHeaderList = ['X', 'Y', 'Mass (pg)', 'Time (h)', 'id', 'Mean Value', 'Shape Factor', 'Location ID', 'Frame ID', 'xShift', 'yShift', 'segmentLabel']
         areaIndex = -1
         massIndex = 2
         timeIndex = 3
@@ -70,7 +72,8 @@ def makeMassOverTimePb(inFolder: str, outFolder: str, quietMode: bool) -> None:
     frameIncluded = colHeaders is not None and 'Frame ID' in colHeaders
     xShiftIncluded = colHeaders is not None and 'xShift' in colHeaders
     yShiftIncluded = colHeaders is not None and 'yShift' in colHeaders
-    segLabelIncluded = colHeaders is not None and 'segmentLabel' in colHeaders
+    # segLabelIncluded = colHeaders is not None and 'segmentLabel' in colHeaders
+    segLabelIncluded = True
     meanIntensityIncluded = colHeaders is not None and 'Mean Intensity' in colHeaders
     allIncluded = locIncluded and frameIncluded and xShiftIncluded and yShiftIncluded and segLabelIncluded
 
@@ -184,7 +187,8 @@ def makeMassOverTimePb(inFolder: str, outFolder: str, quietMode: bool) -> None:
     util.msg_header('', quietMode)
 
     util.msg('Building location maps...', quietMode)
-    locationMaps = buildLocationMaps(colHeaderList, dataRowList)
+    # locationMaps = buildLocationMaps(colHeaderList, dataRowList)
+    locationMaps = {}
 
     curveNames = {'Location ID', 'xShift', 'yShift'}
     for key in colHeaderList:
